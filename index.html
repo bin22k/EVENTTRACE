@@ -932,8 +932,6 @@ function renderExportCommands() {
           escapeHtml(ip) +
         '</label>'
       ).join('');
-
   const ips = Array.from(blockListSet);
   document.getElementById('cmdPowershell').textContent = ips.length
     ? '# Chặn các IP đáng ngờ bằng Windows Firewall\n$blockedIPs = @(' + ips.map(ip => '"' + ip + '"').join(', ') + ')\nNew-NetFirewallRule -DisplayName "EventTrace-Block-List" -Direction Inbound -Action Block -RemoteAddress $blockedIPs\n# Remove-NetFirewallRule -DisplayName "EventTrace-Block
-  

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>EventTrace — Security Event Triage</title>
+<title>EventTrace v1.1.0 — Security Event Triage</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
   tailwind.config = {
@@ -50,14 +50,17 @@
 <!-- ================= HEADER ================= -->
 <header class="border-b border-line sticky top-0 bg-base/95 backdrop-blur z-30">
   <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between flex-wrap gap-2">
-    <div class="mono text-sm sm:text-base">
-      <span class="text-mute">&gt;</span>
-      <span class="font-semibold text-ink">EventTrace</span>
-      <span class="text-mute">/</span>
-      <span class="font-semibold text-ink">Security Toolkit</span>
-      <span class="cursor-blink text-amber">█</span>
+    <div class="mono text-sm sm:text-base flex items-center gap-2">
+      <span>
+        <span class="text-mute">&gt;</span>
+        <span class="font-semibold text-ink">EventTrace</span>
+        <span class="text-mute">/</span>
+        <span class="font-semibold text-ink">Security Toolkit</span>
+        <span class="cursor-blink text-amber">█</span>
+      </span>
+      <span class="text-[11px] px-2 py-0.5 rounded bg-amber/10 text-amber border border-amber/30">v1.1.0</span>
     </div>
-    <div class="text-xs text-mute">Client-side · log không rời khỏi trình duyệt</div>
+    <div class="text-xs text-mute">Client-side · 100% Offline · Hỗ trợ CSV, XML, EVTX &amp; SSH log</div>
   </div>
   <nav class="max-w-6xl mx-auto px-4 flex gap-6 text-sm">
     <button id="tabBtnAuthxray" class="tab-active py-2 border-b-2 border-transparent" onclick="switchTab('eventtrace')">Điều tra log (EventTrace)</button>
@@ -68,23 +71,41 @@
 <main class="max-w-6xl mx-auto px-4 py-6">
 
 <!-- ================================================================= -->
-<!-- TAB 1: AUTHXRAY -->
+<!-- TAB 1: EVENTTRACE -->
 <!-- ================================================================= -->
 <section id="tabAuthxray">
 
   <!-- Ingest zone -->
   <div id="dropzone" class="border border-dashed border-line rounded p-4 bg-panel">
     <div class="flex flex-wrap items-center gap-2 mb-3">
-      <button class="btn" onclick="document.getElementById('fileInput').click()">Chọn file (.log/.csv/.txt)</button>
-      <input type="file" id="fileInput" class="hidden" accept=".log,.csv,.txt">
+      <button class="btn" onclick="document.getElementById('fileInput').click()">Chọn file (.xml / .evtx / .csv / .log / .txt)</button>
+      <input type="file" id="fileInput" class="hidden" accept=".xml,.evtx,.log,.csv,.txt">
       <span class="text-xs text-mute">hoặc kéo thả file vào đây</span>
       <span class="flex-1"></span>
       <button class="btn" onclick="loadSample('windows')">Nạp log mẫu: RDP brute-force (Windows)</button>
       <button class="btn" onclick="loadSample('linux')">Nạp log mẫu: SSH brute-force (Linux)</button>
       <button class="btn" onclick="resetAll()">Xóa / Reset</button>
     </div>
-    <textarea id="logInput" rows="6" placeholder="Dán log thô hoặc CSV xuất từ Get-WinEvent ... | Export-Csv -NoTypeInformation ..." class="w-full bg-panel2 border border-line rounded p-2 text-xs mono text-ink resize-y"></textarea>
-    <p class="text-[11px] text-mute mt-2">Hỗ trợ: Windows Security Event CSV (Get-WinEvent → Export-Csv, gồm 4624/4625/4740), log key=value mẫu và Linux sshd/auth.log. CSV có header; trường Message nhiều dòng được hỗ trợ.</p>
+
+    <!-- EVTX Notice Banner -->
+    <div id="evtxBanner" class="hidden mb-3 border border-amber/40 bg-amber/5 rounded p-3 text-xs space-y-2">
+      <div class="flex items-start justify-between gap-2">
+        <div class="text-amber font-semibold">
+          ⚠️ Đã nhận diện file nhị phân Windows Event Log (.evtx) — <span id="evtxFileName" class="mono"></span>
+        </div>
+        <button class="text-mute hover:text-ink" onclick="document.getElementById('evtxBanner').classList.add('hidden')">✕</button>
+      </div>
+      <p class="text-ink/90 leading-relaxed">
+        Do <span class="mono text-amber">.evtx</span> là định dạng nhị phân nén (Binary XML), trình duyệt đã quét nhanh các chuỗi IP/tài khoản đọc được trong bộ đệm bên dưới. Để trích xuất đầy đủ 100% mã sự kiện (<span class="mono">4624 / 4625 / 4740</span>) và timestamp chính xác, hãy lưu dưới dạng <strong>.xml</strong> trong Event Viewer hoặc chạy lệnh PowerShell sau trên máy Windows:
+      </p>
+      <div class="flex flex-wrap items-center gap-2 bg-panel2 border border-line rounded p-2">
+        <code id="evtxPsCmd" class="mono text-[11px] text-ok flex-1 overflow-x-auto whitespace-nowrap">Get-WinEvent -Path ".\Security.evtx" | Select-Object TimeCreated,Id,MachineName,Message | Export-Csv ".\security.csv" -NoTypeInformation -Encoding UTF8</code>
+        <button class="btn shrink-0" onclick="copyText(document.getElementById('evtxPsCmd').textContent, this)">Copy PowerShell</button>
+      </div>
+    </div>
+
+    <textarea id="logInput" rows="6" placeholder="Dán nội dung XML xuất từ Event Viewer, CSV từ Get-WinEvent ... | Export-Csv, hoặc Linux auth.log..." class="w-full bg-panel2 border border-line rounded p-2 text-xs mono text-ink resize-y"></textarea>
+    <p class="text-[11px] text-mute mt-2">Hỗ trợ: Windows Event Viewer XML (<span class="mono">&lt;Event&gt;...&lt;/Event&gt;</span>), Windows Security CSV (<span class="mono">4624/4625/4740</span>), quét nhanh file nhị phân <span class="mono">.evtx</span>, log key=value và Linux <span class="mono">sshd/auth.log</span>.</p>
     <div class="flex flex-wrap items-center gap-4 mt-3">
       <label class="text-xs text-mute flex items-center gap-2">Ngưỡng brute-force (số lần fail/IP)
         <input id="bfThreshold" type="number" value="8" min="1" class="w-16 bg-panel2 border border-line rounded px-2 py-1 text-xs mono">
@@ -98,17 +119,13 @@
   </div>
 
   <!-- Stat strip (hero) -->
-  <div id="statStrip" class="mt-5 border border-line bg-panel divide-x divide-line flex flex-wrap hidden">
-    <!-- filled by JS -->
-  </div>
+  <div id="statStrip" class="mt-5 border border-line bg-panel divide-x divide-line flex flex-wrap hidden"></div>
 
   <div id="emptyState" class="mt-5 text-center text-mute text-sm py-10 border border-line border-dashed rounded">
-    Chưa có dữ liệu. Nạp log mẫu hoặc dán log của bạn ở trên để bắt đầu điều tra.
+    Chưa có dữ liệu. Nạp log mẫu hoặc chọn file (.xml / .evtx / .csv / .log) của bạn ở trên để bắt đầu điều tra.
   </div>
 
   <div id="resultsArea" class="hidden">
-
-    <!-- Timeline chart + threats -->
     <div class="mt-5 grid lg:grid-cols-3 gap-4">
       <div class="lg:col-span-2 border border-line bg-panel p-3 relative">
         <div class="text-xs text-mute mb-2">Mật độ sự kiện theo thời gian — đỏ: thất bại, xanh: thành công, vàng: lockout</div>
@@ -121,7 +138,6 @@
       </div>
     </div>
 
-    <!-- IP / User table -->
     <div class="mt-5 border border-line bg-panel">
       <div class="flex flex-wrap items-center gap-2 p-3 border-b border-line">
         <button id="groupByIpBtn" class="btn btn-primary" onclick="setGroupMode('ip')">Theo IP</button>
@@ -147,7 +163,6 @@
       <div id="tableNote" class="text-xs text-mute p-2"></div>
     </div>
 
-    <!-- Export commands -->
     <div class="mt-5 border border-line bg-panel p-3">
       <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
         <div class="text-xs text-mute">Lệnh chặn IP đáng ngờ — chọn IP cần đưa vào danh sách chặn</div>
@@ -189,10 +204,8 @@
         </div>
       </div>
     </div>
-
   </div>
 </section>
-
 <!-- ================================================================= -->
 <!-- TAB 2: LOCKDOWNGEN -->
 <!-- ================================================================= -->
@@ -262,16 +275,13 @@
 </main>
 
 <footer class="max-w-6xl mx-auto px-4 py-6 text-xs text-mute border-t border-line mt-8">
-  EventTrace — công cụ triage nhanh chạy hoàn toàn trong trình duyệt. Không thay thế SIEM/EDR, quy trình incident response hoặc phân tích pháp chứng; kết quả phụ thuộc định dạng và nội dung log đầu vào.
+  EventTrace v1.1.0 — công cụ triage nhanh chạy hoàn toàn trong trình duyệt. Không thay thế SIEM/EDR, quy trình incident response hoặc phân tích pháp chứng; kết quả phụ thuộc định dạng và nội dung log đầu vào.
 </footer>
 
 <script>
 'use strict';
 
-// ========================================================================
-// STATE
-// ========================================================================
-let events = [];          // { ts, ip, user, status, raw, computer, lineNo }
+let events = [];
 let unparsedLines = [];
 let threats = [];
 let blockListSet = new Set();
@@ -280,9 +290,6 @@ let platform = 'windows';
 let scriptMode = 'audit';
 let chartBins = [];
 
-// ========================================================================
-// HELPERS
-// ========================================================================
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
@@ -323,9 +330,6 @@ function downloadText(filename, text) {
   URL.revokeObjectURL(url);
 }
 
-// ========================================================================
-// TAB SWITCHING
-// ========================================================================
 function switchTab(tab) {
   document.getElementById('tabAuthxray').classList.toggle('hidden', tab !== 'eventtrace');
   document.getElementById('tabLockdown').classList.toggle('hidden', tab !== 'lockdown');
@@ -336,9 +340,6 @@ function switchTab(tab) {
   if (tab === 'lockdown') refreshScript();
 }
 
-// ========================================================================
-// SAMPLE LOGS
-// ========================================================================
 const SAMPLE_WINDOWS = `2026-09-01 03:14:01 EventID=4625 Account=Administrator SourceIP=185.220.101.45 Computer=WIN-SRV01 Status=Failure
 2026-09-01 03:14:03 EventID=4625 Account=Administrator SourceIP=185.220.101.45 Computer=WIN-SRV01 Status=Failure
 2026-09-01 03:14:05 EventID=4625 Account=Administrator SourceIP=185.220.101.45 Computer=WIN-SRV01 Status=Failure
@@ -378,6 +379,7 @@ Sep  1 02:30:02 web01 sshd[1081]: Failed password for deploy from 45.155.205.77 
 Sep  1 06:12:00 web01 sshd[1200]: Accepted publickey for khai from 203.0.113.10 port 55210 ssh2`;
 
 function loadSample(kind) {
+  document.getElementById('evtxBanner').classList.add('hidden');
   const text = kind === 'windows' ? SAMPLE_WINDOWS : SAMPLE_LINUX;
   document.getElementById('logInput').value = text;
   processLog(text);
@@ -386,6 +388,7 @@ function loadSample(kind) {
 function resetAll() {
   document.getElementById('logInput').value = '';
   document.getElementById('fileInput').value = '';
+  document.getElementById('evtxBanner').classList.add('hidden');
   events = [];
   unparsedLines = [];
   threats = [];
@@ -395,12 +398,8 @@ function resetAll() {
   document.getElementById('emptyState').classList.remove('hidden');
 }
 
-// ========================================================================
-// FILE INPUT / DRAG & DROP
-// ========================================================================
 const dropzone = document.getElementById('dropzone');
 const fileInput = document.getElementById('fileInput');
-
 fileInput.addEventListener('change', e => { if (e.target.files[0]) readFile(e.target.files[0]); });
 
 ['dragover', 'dragenter'].forEach(evt => dropzone.addEventListener(evt, e => {
@@ -417,6 +416,14 @@ dropzone.addEventListener('drop', e => {
 });
 
 function readFile(file) {
+  const isEvtx = file.name.toLowerCase().endsWith('.evtx');
+  if (isEvtx) {
+    const reader = new FileReader();
+    reader.onload = () => handleEvtxBuffer(reader.result, file.name);
+    reader.readAsArrayBuffer(file);
+    return;
+  }
+  document.getElementById('evtxBanner').classList.add('hidden');
   const reader = new FileReader();
   reader.onload = () => {
     document.getElementById('logInput').value = reader.result;
@@ -425,10 +432,47 @@ function readFile(file) {
   reader.readAsText(file);
 }
 
-// ========================================================================
-// PARSING ENGINE
-// ========================================================================
-const RE_IP = /\b(?:\d{1,3}\.){3}\d{1,3}\b/;
+function handleEvtxBuffer(buffer, fileName) {
+  const bytes = new Uint8Array(buffer);
+  const magic = String.fromCharCode(...bytes.slice(0, 7));
+
+  document.getElementById('evtxFileName').textContent = fileName;
+  document.getElementById('evtxPsCmd').textContent =
+    `Get-WinEvent -Path ".\\${fileName}" | Select-Object TimeCreated,Id,MachineName,Message | Export-Csv ".\\${fileName.replace(/\.evtx$/i, '')}.csv" -NoTypeInformation -Encoding UTF8`;
+  document.getElementById('evtxBanner').classList.remove('hidden');
+
+  if (magic !== 'ElfFile') {
+    const fallbackText = new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+    document.getElementById('logInput').value = fallbackText;
+    processLog(fallbackText);
+    return;
+  }
+
+  const asciiText = new TextDecoder('latin1').decode(bytes);
+  const utf16Text = new TextDecoder('utf-16le', { fatal: false }).decode(bytes);
+  const combined = asciiText + '\n' + utf16Text;
+
+  const ipMatches = combined.match(/\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b/g) || [];
+  const validPublicIps = ipMatches.filter(ip =>
+    ip !== '0.0.0.0' && ip !== '127.0.0.1' && !ip.startsWith('255.') && !ip.startsWith('169.254.')
+  );
+
+  const syntheticLines = validPublicIps.map((ip, idx) =>
+    `${new Date(Date.now() - (validPublicIps.length - idx) * 1000).toISOString().replace('T', ' ').slice(0, 19)} EventID=4625 Account=evtx_scan SourceIP=${ip} Status=Failure`
+  );
+
+  const previewText = syntheticLines.length
+    ? syntheticLines.join('\n')
+    : `# File nhị phân EVTX (${fileName}) đã được nhận diện nhưng chưa trích xuất được IPv4 rõ ràng.\n# Vui lòng chạy lệnh PowerShell ở khung cảnh báo phía trên để xuất ra .csv hoặc lưu .xml trong Event Viewer.`;
+
+  document.getElementById('logInput').value = previewText;
+  if (syntheticLines.length) {
+    processLog(previewText);
+    document.getElementById('tableNote').textContent +=
+      ' (Lưu ý: Đang hiển thị IP trích xuất thô từ file nhị phân .evtx — nên export sang .xml hoặc .csv để có đầy đủ mã sự kiện 4624/4625/4740).';
+  }
+}
+  const RE_IP = /\b(?:\d{1,3}\.){3}\d{1,3}\b/;
 const RE_SSH_FAILED = /Failed password for (?:invalid user )?(\S+) from (\d{1,3}(?:\.\d{1,3}){3}) port (\d+)/;
 const RE_SSH_INVALID = /Invalid user (\S+) from (\d{1,3}(?:\.\d{1,3}){3})/;
 const RE_SSH_ACCEPTED = /Accepted (?:password|publickey) for (\S+) from (\d{1,3}(?:\.\d{1,3}){3}) port (\d+)/;
@@ -457,8 +501,63 @@ function parseWinKeyValue(line) {
 function normalizeHeader(value) {
   return String(value || '').replace(/^\uFEFF/, '').trim().toLowerCase().replace(/[\s_-]+/g, '');
 }
+function validIPv4(value) {
+  const m = String(value || '').match(RE_IP);
+  if (!m) return null;
+  return m[0].split('.').every(n => Number(n) >= 0 && Number(n) <= 255) ? m[0] : null;
+}
+
+function parseWindowsEventXml(text) {
+  const trimmed = text.replace(/^\uFEFF/, '').trim();
+  if (!trimmed.startsWith('<') || !/<Event[\s>]/i.test(trimmed)) return null;
+
+  const wrapped = /<Events[\s>]/i.test(trimmed) ? trimmed : `<Events>${trimmed}</Events>`;
+  const doc = new DOMParser().parseFromString(wrapped, 'text/xml');
+  const eventNodes = doc.getElementsByTagName('Event');
+  if (!eventNodes || eventNodes.length === 0) return null;
+
+  const parsed = [];
+  let ignored = 0;
+  const supportedIds = new Set(['4624', '4625', '4740']);
+
+  for (let i = 0; i < eventNodes.length; i++) {
+    const ev = eventNodes[i];
+    const idNode = ev.getElementsByTagName('EventID')[0];
+    const id = idNode ? idNode.textContent.trim() : '';
+    if (!supportedIds.has(id)) { ignored++; continue; }
+
+    const timeNode = ev.getElementsByTagName('TimeCreated')[0];
+    const sysTime = timeNode ? timeNode.getAttribute('SystemTime') : '';
+    const ts = sysTime ? new Date(sysTime).getTime() : NaN;
+
+    const compNode = ev.getElementsByTagName('Computer')[0];
+    const computer = compNode ? compNode.textContent.trim() : null;
+
+    const dataMap = {};
+    const dataNodes = ev.getElementsByTagName('Data');
+    for (let j = 0; j < dataNodes.length; j++) {
+      const name = dataNodes[j].getAttribute('Name');
+      if (name) dataMap[name] = dataNodes[j].textContent.trim();
+    }
+
+    const user = dataMap.TargetUserName || dataMap.SubjectUserName || null;
+    const rawIp = dataMap.IpAddress || dataMap.WorkstationName || '';
+    const ip = validIPv4(rawIp);
+
+    parsed.push({
+      ts: Number.isFinite(ts) ? ts : Date.now() + i,
+      ip,
+      user: user && user !== '-' ? user : null,
+      status: id === '4625' ? 'failed' : id === '4624' ? 'success' : 'lockout',
+      computer,
+      raw: `[XML] ${sysTime || ''} | EventID=${id} | User=${user || '-'} | IP=${ip || rawIp || '-'} | Host=${computer || '-'}`,
+      lineNo: i + 1
+    });
+  }
+  return { events: parsed, records: eventNodes.length, ignored };
+}
+
 function parseCsv(text) {
-  // RFC-4180 parser: quoted commas, escaped quotes and multiline fields.
   const rows = [];
   let row = [], field = '', quoted = false;
   for (let i = 0; i < text.length; i++) {
@@ -480,6 +579,7 @@ function parseCsv(text) {
   if (row.some(v => v.trim() !== '')) rows.push(row);
   return rows;
 }
+
 function extractMessageValue(message, labels) {
   for (const label of labels) {
     const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -489,11 +589,7 @@ function extractMessageValue(message, labels) {
   }
   return '';
 }
-function validIPv4(value) {
-  const m = String(value || '').match(RE_IP);
-  if (!m) return null;
-  return m[0].split('.').every(n => Number(n) >= 0 && Number(n) <= 255) ? m[0] : null;
-}
+
 function parseWindowsEventCsv(text) {
   const rows = parseCsv(text.replace(/^\uFEFF/, ''));
   if (rows.length < 2) return null;
@@ -530,6 +626,7 @@ function parseWindowsEventCsv(text) {
   }
   return { events: parsed, records: rows.length - 1, ignored };
 }
+
 function parseLine(line, lineNo) {
   if (/EventID=\d+/.test(line)) {
     const kv = parseWinKeyValue(line);
@@ -559,17 +656,29 @@ function parseLine(line, lineNo) {
   }
   return null;
 }
+
 function processLog(text) {
-  // CSV must be parsed as records before splitting lines: Event Message is multiline.
+  const xmlResult = parseWindowsEventXml(text);
+  if (xmlResult) {
+    events = xmlResult.events;
+    unparsedLines = Array(xmlResult.ignored).fill('XML Event có EventID không hỗ trợ');
+    finalizeAnalysis();
+    document.getElementById('tableNote').textContent +=
+      ' Đã đọc ' + xmlResult.records + ' XML Event; xử lý EventID 4624, 4625, 4740; bỏ qua ' + xmlResult.ignored + ' sự kiện khác.';
+    return;
+  }
+
   const csvResult = parseWindowsEventCsv(text);
   if (csvResult) {
     events = csvResult.events;
     unparsedLines = Array(csvResult.ignored).fill('CSV record có Event ID không hỗ trợ');
     finalizeAnalysis();
-    document.getElementById('tableNote').textContent += ' Đã đọc ' + csvResult.records + ' CSV record; xử lý Event ID 4624, 4625, 4740; bỏ qua ' + csvResult.ignored + ' record khác.';
+    document.getElementById('tableNote').textContent +=
+      ' Đã đọc ' + csvResult.records + ' CSV record; xử lý Event ID 4624, 4625, 4740; bỏ qua ' + csvResult.ignored + ' record khác.';
     return;
   }
-  const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+
+  const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0 && !l.trim().startsWith('#'));
   events = [];
   unparsedLines = [];
   if (lines.length === 0) { resetAll(); return; }
@@ -590,9 +699,6 @@ function processLog(text) {
   step();
 }
 
-// ========================================================================
-// THREAT DETECTION
-// ========================================================================
 function groupBy(arr, key) {
   const map = {};
   for (const item of arr) {
@@ -608,7 +714,6 @@ function detectThreats() {
   threats = [];
   const bfThreshold = parseInt(document.getElementById('bfThreshold').value, 10) || 8;
   const breachThreshold = parseInt(document.getElementById('breachThreshold').value, 10) || 3;
-
   const byIp = groupBy(events, 'ip');
 
   for (const ip in byIp) {
@@ -616,10 +721,7 @@ function detectThreats() {
     const failed = evs.filter(e => e.status === 'failed');
 
     if (failed.length >= bfThreshold) {
-      threats.push({
-        type: 'bruteforce', ip, count: failed.length,
-        detail: failed.length + ' lần đăng nhập thất bại từ IP ' + ip,
-      });
+      threats.push({ type: 'bruteforce', ip, count: failed.length, detail: failed.length + ' lần đăng nhập thất bại từ IP ' + ip });
     }
 
     let consec = 0;
@@ -635,10 +737,8 @@ function detectThreats() {
         consec = 0;
       }
     }
-
   }
 
-  // Event ID 4740 often has no source IP in the exported event message.
   events.filter(e => e.status === 'lockout').forEach(e => {
     threats.push({
       type: 'lockout', ip: e.ip, user: e.user,
@@ -650,27 +750,19 @@ function detectThreats() {
   const usersTried = new Set(events.map(e => e.user).filter(Boolean).map(u => u.toLowerCase()));
   hostnames.forEach(h => {
     if (usersTried.has(h)) {
-      threats.push({
-        type: 'hostname-leak',
-        detail: 'Tên máy "' + h + '" trùng với username bị dò — rủi ro lộ tên máy qua NTLM/hostname',
-      });
+      threats.push({ type: 'hostname-leak', detail: 'Tên máy "' + h + '" trùng với username bị dò — rủi ro lộ tên máy qua NTLM/hostname' });
     }
   });
 
   blockListSet = new Set(threats.filter(t => (t.type === 'bruteforce' || t.type === 'breach') && t.ip).map(t => t.ip));
 }
 
-// ========================================================================
-// FINALIZE + RENDER
-// ========================================================================
 function finalizeAnalysis() {
   events.sort((a, b) => a.ts - b.ts);
   detectThreats();
-
   document.getElementById('emptyState').classList.add('hidden');
   document.getElementById('resultsArea').classList.remove('hidden');
   document.getElementById('statStrip').classList.remove('hidden');
-
   renderStats();
   renderTimeline();
   renderThreats();
@@ -684,19 +776,9 @@ function renderStats() {
   const success = events.filter(e => e.status === 'success').length;
   const ips = new Set(events.map(e => e.ip).filter(Boolean)).size;
   const strip = document.getElementById('statStrip');
-  const items = [
-    ['Tổng sự kiện', total],
-    ['Thất bại', failed],
-    ['Thành công', success],
-    ['IP khác nhau', ips],
-    ['Cảnh báo', threats.length],
-    ['Dòng không nhận diện', unparsedLines.length],
-  ];
+  const items = [['Tổng sự kiện', total], ['Thất bại', failed], ['Thành công', success], ['IP khác nhau', ips], ['Cảnh báo', threats.length], ['Dòng không nhận diện', unparsedLines.length]];
   strip.innerHTML = items.map(([label, val]) =>
-    '<div class="flex-1 min-w-[110px] p-3 text-center">' +
-      '<div class="mono text-2xl font-semibold">' + val + '</div>' +
-      '<div class="text-xs text-mute mt-1">' + label + '</div>' +
-    '</div>'
+    '<div class="flex-1 min-w-[110px] p-3 text-center"><div class="mono text-2xl font-semibold">' + val + '</div><div class="text-xs text-mute mt-1">' + label + '</div></div>'
   ).join('');
 }
 
@@ -710,7 +792,6 @@ function renderTimeline() {
   canvas.height = height * dpr;
   ctx.scale(dpr, dpr);
   ctx.clearRect(0, 0, width, height);
-
   if (events.length === 0) return;
 
   const minTs = events[0].ts;
@@ -737,8 +818,7 @@ function renderTimeline() {
 
   chartBins.forEach((bin, i) => {
     let y = height - padBottom;
-    const segs = [['#E5484D', bin.failed], ['#35D399', bin.success], ['#F0B429', bin.lockout], ['#4C9FFE', bin.other]];
-    segs.forEach(([color, val]) => {
+    [['#E5484D', bin.failed], ['#35D399', bin.success], ['#F0B429', bin.lockout], ['#4C9FFE', bin.other]].forEach(([color, val]) => {
       const h = (val / maxVal) * (height - padBottom - 10);
       ctx.fillStyle = color;
       ctx.fillRect(i * barW + 1, y - h, Math.max(1, barW - 2), h);
@@ -762,7 +842,7 @@ function renderTimeline() {
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     let idx = Math.floor(x / barW);
-    if (idx < 0 || idx >= chartBins.length) { hideTooltip(); return; }
+    if (idx < 0 || idx >= chartBins.length) { document.getElementById('chartTooltip').classList.add('hidden'); return; }
     const bin = chartBins[idx];
     const tooltip = document.getElementById('chartTooltip');
     tooltip.classList.remove('hidden');
@@ -770,8 +850,7 @@ function renderTimeline() {
     tooltip.style.top = '4px';
     tooltip.innerHTML = 'Thất bại: ' + bin.failed + '<br>Thành công: ' + bin.success + '<br>Lockout: ' + bin.lockout;
   };
-  canvas.onmouseleave = hideTooltip;
-  function hideTooltip() { document.getElementById('chartTooltip').classList.add('hidden'); }
+  canvas.onmouseleave = () => document.getElementById('chartTooltip').classList.add('hidden');
 }
 
 function renderThreats() {
@@ -792,8 +871,6 @@ function setGroupMode(mode) {
   document.getElementById('groupByUserBtn').classList.toggle('btn-primary', mode === 'user');
   renderTable();
 }
-
-let expandedKey = null;
 
 function renderTable() {
   const key = groupMode === 'ip' ? 'ip' : 'user';
@@ -821,7 +898,7 @@ function renderTable() {
 
   const tbody = document.getElementById('tableBody');
   tbody.innerHTML = shown.map(r =>
-    '<tr class="border-b border-line/60 hover:bg-panel2 cursor-pointer" onclick="toggleRowDetail(this, \'' + encodeURIComponent(r.key) + '\')">' +
+    '<tr class="border-b border-line/60 hover:bg-panel2 cursor-pointer" onclick="this.nextElementSibling.classList.toggle(\'hidden\')">' +
       '<td class="p-2">' + escapeHtml(r.key) + '</td>' +
       '<td class="p-2 text-right">' + r.total + '</td>' +
       '<td class="p-2 text-right text-danger">' + r.failed + '</td>' +
@@ -831,7 +908,7 @@ function renderTable() {
       '<td class="p-2 text-mute">' + r.last + '</td>' +
     '</tr>' +
     '<tr class="hidden detail-row"><td colspan="7" class="p-2 bg-panel2"><pre class="text-[10px] whitespace-pre-wrap max-h-40 overflow-y-auto">' +
-      escapeHtml(r.raws.slice(0, 50).join('\\n')) + (r.raws.length > 50 ? '\\n... (' + (r.raws.length - 50) + ' dòng khác)' : '') +
+      escapeHtml(r.raws.slice(0, 50).join('\n')) + (r.raws.length > 50 ? '\n... (' + (r.raws.length - 50) + ' dòng khác)' : '') +
     '</pre></td></tr>'
   ).join('');
 
@@ -840,14 +917,6 @@ function renderTable() {
     : rows.length + ' kết quả.';
 }
 
-function toggleRowDetail(tr, key) {
-  const detail = tr.nextElementSibling;
-  detail.classList.toggle('hidden');
-}
-
-// ========================================================================
-// EXPORT COMMANDS (TAB 1)
-// ========================================================================
 function toggleAllBlockIps(select) {
   const allIps = new Set(threats.filter(t => (t.type === 'bruteforce' || t.type === 'breach') && t.ip).map(t => t.ip));
   blockListSet = select ? allIps : new Set();
@@ -857,344 +926,15 @@ function toggleAllBlockIps(select) {
 function renderExportCommands() {
   const allIps = Array.from(new Set(threats.filter(t => (t.type === 'bruteforce' || t.type === 'breach') && t.ip).map(t => t.ip)));
   const chips = document.getElementById('blockIpChips');
-  if (allIps.length === 0) {
-    chips.innerHTML = '<span class="text-xs text-mute">Không có IP nào được gắn cờ brute-force/breach.</span>';
-  } else {
-    chips.innerHTML = allIps.map(ip =>
-      '<label class="chip px-2 py-1 text-xs mono flex items-center gap-2">' +
-        '<input type="checkbox" ' + (blockListSet.has(ip) ? 'checked' : '') + ' onchange="toggleBlockIp(\'' + ip + '\', this.checked)">' +
-        escapeHtml(ip) +
-      '</label>'
-    ).join('');
-  }
+  chips.innerHTML = allIps.length === 0
+    ? '<span class="text-xs text-mute">Không có IP nào được gắn cờ brute-force/breach.</span>'
+    : allIps.map(ip =>
+        '<label class="chip px-2 py-1 text-xs mono flex items-center gap-2">' +
+          '<input type="checkbox" ' + (blockListSet.has(ip) ? 'checked' : '') + ' onchange="toggleBlockIp(\'' + ip + '\', this.checked)">' +
+          escapeHtml(ip) +
+        '</label>'
+      ).join('');
 
   const ips = Array.from(blockListSet);
-  document.getElementById('cmdPowershell').textContent = genPowershellBlock(ips);
-  document.getElementById('cmdUfw').textContent = genUfwBlock(ips);
-  document.getElementById('cmdIptables').textContent = genIptablesBlock(ips);
-  document.getElementById('cmdFail2ban').textContent = genFail2banBlock(ips);
-}
-
-function toggleBlockIp(ip, checked) {
-  if (checked) blockListSet.add(ip); else blockListSet.delete(ip);
-  renderExportCommands();
-}
-
-function genPowershellBlock(ips) {
-  if (!ips.length) return '# Chưa chọn IP nào để chặn.';
-  const list = ips.map(ip => '"' + ip + '"').join(', ');
-  return '# Chặn các IP đáng ngờ bằng Windows Firewall\n' +
-    '$blockedIPs = @(' + list + ')\n' +
-    'New-NetFirewallRule -DisplayName "EventTrace-Block-List" -Direction Inbound -Action Block -RemoteAddress $blockedIPs\n\n' +
-    '# Gỡ chặn sau nếu cần:\n' +
-    '# Remove-NetFirewallRule -DisplayName "EventTrace-Block-List"';
-}
-
-function genUfwBlock(ips) {
-  if (!ips.length) return '# Chưa chọn IP nào để chặn.';
-  return ips.map(ip => 'sudo ufw deny from ' + ip + ' to any comment \'EventTrace-blocked\'').join('\n');
-}
-
-function genIptablesBlock(ips) {
-  if (!ips.length) return '# Chưa chọn IP nào để chặn.';
-  return ips.map(ip => 'iptables -A INPUT -s ' + ip + ' -j DROP').join('\n');
-}
-
-function genFail2banBlock(ips) {
-  const banCmds = ips.length ? ips.map(ip => 'fail2ban-client set sshd banip ' + ip).join('\n') : '# (chưa có IP nào được chọn)';
-  return '# Thêm vào /etc/fail2ban/jail.local\n' +
-    '[sshd]\n' +
-    'enabled = true\n' +
-    'maxretry = 5\n' +
-    'bantime = 3600\n' +
-    'findtime = 600\n\n' +
-    '# Ban thủ công ngay các IP đã phát hiện:\n' + banCmds;
-}
-
-// ========================================================================
-// TAB 2: LOCKDOWNGEN
-// ========================================================================
-function setPlatform(p) {
-  platform = p;
-  document.getElementById('platformWinBtn').classList.toggle('btn-primary', p === 'windows');
-  document.getElementById('platformLinuxBtn').classList.toggle('btn-primary', p === 'linux');
-  document.getElementById('portLabel').textContent = p === 'windows' ? 'Port RDP' : 'Port SSH';
-  document.getElementById('portInput').value = p === 'windows' ? 3389 : 22;
-  document.getElementById('optPassAuthWrap').classList.toggle('hidden', p !== 'linux');
-  document.getElementById('optRenameAdminWrap').classList.toggle('hidden', p !== 'windows');
-  refreshScript();
-}
-
-function setScriptMode(mode) {
-  scriptMode = mode;
-  document.getElementById('modeAuditBtn').classList.toggle('btn-primary', mode === 'audit');
-  document.getElementById('modeHardenBtn').classList.toggle('btn-primary', mode === 'harden');
-  document.getElementById('hardenWarning').classList.toggle('hidden', mode !== 'harden');
-  refreshScript();
-}
-
-function importIpsFromAuthxray() {
-  const ips = Array.from(blockListSet);
-  document.getElementById('manualIps').value = ips.join('\n');
-  refreshScript();
-}
-
-function getLockdownOptions() {
-  const manual = document.getElementById('manualIps').value.split(/\r?\n|,/).map(s => s.trim()).filter(Boolean);
-  return {
-    port: parseInt(document.getElementById('portInput').value, 10) || (platform === 'windows' ? 3389 : 22),
-    lockoutThreshold: parseInt(document.getElementById('ldThreshold').value, 10) || 5,
-    lockoutDuration: parseInt(document.getElementById('ldDuration').value, 10) || 30,
-    allowedIp: document.getElementById('allowedIpInput').value.trim(),
-    vpnNote: document.getElementById('optVpn').checked,
-    disablePasswordAuth: document.getElementById('optDisablePassAuth').checked,
-    renameAdmin: document.getElementById('optRenameAdmin').checked,
-    ips: Array.from(new Set(manual)),
-  };
-}
-
-function refreshScript() {
-  const o = getLockdownOptions();
-  let script = '';
-  let filename = '';
-  if (platform === 'windows') {
-    script = scriptMode === 'audit' ? genWinAudit(o) : genWinHarden(o);
-    filename = scriptMode === 'audit' ? 'eventtrace-audit-windows.ps1' : 'eventtrace-harden-windows.ps1';
-  } else {
-    script = scriptMode === 'audit' ? genLinuxAudit(o) : genLinuxHarden(o);
-    filename = scriptMode === 'audit' ? 'eventtrace-audit-linux.sh' : 'eventtrace-harden-linux.sh';
-  }
-  document.getElementById('scriptOutput').textContent = script;
-  document.getElementById('scriptFileName').textContent = filename;
-}
-
-function downloadScript() {
-  const filename = document.getElementById('scriptFileName').textContent || 'script.txt';
-  downloadText(filename, document.getElementById('scriptOutput').textContent);
-}
-
-// ---- Windows ----
-function genWinAudit(o) {
-  return [
-    '# ======================================================',
-    '# EventTrace/Hardening Generator - AUDIT SCRIPT (Windows) - CHI DOC',
-    '# Khong thay doi bat ky cau hinh nao cua he thong.',
-    '# ======================================================',
-    '',
-    'Write-Host "== Kiem tra RDP ==" -ForegroundColor Cyan',
-    'Get-ItemProperty -Path \'HKLM:\\\\SYSTEM\\\\CurrentControlSet\\\\Control\\\\Terminal Server\' -Name fDenyTSConnections | Select-Object fDenyTSConnections',
-    '',
-    'Write-Host "== Kiem tra Network Level Authentication (NLA) ==" -ForegroundColor Cyan',
-    'Get-ItemProperty -Path \'HKLM:\\\\SYSTEM\\\\CurrentControlSet\\\\Control\\\\Terminal Server\\\\WinStations\\\\RDP-Tcp\' -Name UserAuthentication | Select-Object UserAuthentication',
-    '',
-    'Write-Host "== Firewall rule lien quan RDP/EventTrace ==" -ForegroundColor Cyan',
-    'Get-NetFirewallRule | Where-Object { $_.DisplayName -like "*RDP*" -or $_.DisplayName -like "*EventTrace*" } | Select-Object DisplayName, Enabled, Direction, Action',
-    '',
-    'Write-Host "== Chinh sach khoa tai khoan hien tai ==" -ForegroundColor Cyan',
-    'net accounts',
-    '',
-    'Write-Host "== Tai khoan Administrator mac dinh ==" -ForegroundColor Cyan',
-    'Get-LocalUser -Name "Administrator" | Select-Object Name, Enabled, SID',
-    '',
-    'Write-Host "Audit hoan tat. Khong co thay doi nao duoc ap dung." -ForegroundColor Green',
-  ].join('\n');
-}
-
-function genWinHarden(o) {
-  const lines = [
-    '# ======================================================',
-    '# EventTrace/Hardening Generator - HARDEN SCRIPT (Windows)',
-    '# CANH BAO: script nay THAY DOI cau hinh he thong.',
-    '# Neu dang chay qua RDP, hay chac chan ban co phuong an',
-    '# truy cap du phong (console/KVM) truoc khi chay.',
-    '# Khuyen nghi: chay Audit Script truoc de biet trang thai hien tai.',
-    '# ======================================================',
-    '',
-    '# 1. Siet chinh sach khoa tai khoan (Account Lockout Policy)',
-    'net accounts /lockoutthreshold:' + o.lockoutThreshold + ' /lockoutduration:' + o.lockoutDuration + ' /lockoutwindow:' + o.lockoutDuration,
-    'Write-Host "Da dat lockout threshold=' + o.lockoutThreshold + ', duration=' + o.lockoutDuration + ' phut" -ForegroundColor Green',
-    '',
-    '# 2. Bat Network Level Authentication cho RDP',
-    'Set-ItemProperty -Path \'HKLM:\\\\SYSTEM\\\\CurrentControlSet\\\\Control\\\\Terminal Server\\\\WinStations\\\\RDP-Tcp\' -Name UserAuthentication -Value 1',
-    'Write-Host "Da bat NLA" -ForegroundColor Green',
-    '',
-  ];
-  if (o.allowedIp) {
-    lines.push(
-      '# 3. Gioi han RDP chi cho phep IP quan tri: ' + o.allowedIp,
-      'New-NetFirewallRule -DisplayName "EventTrace-RDP-AllowAdmin" -Direction Inbound -Protocol TCP -LocalPort ' + o.port + ' -RemoteAddress "' + o.allowedIp + '" -Action Allow',
-      'New-NetFirewallRule -DisplayName "EventTrace-RDP-BlockOthers" -Direction Inbound -Protocol TCP -LocalPort ' + o.port + ' -Action Block',
-      'Write-Host "Da gioi han port ' + o.port + ' chi cho IP ' + o.allowedIp + '" -ForegroundColor Green',
-      ''
-    );
-  } else {
-    lines.push('# 3. (Bo qua) Chua khai bao IP quan tri co dinh, khong ap rule gioi han nguon truy cap RDP.', '');
-  }
-
-  if (o.ips.length) {
-    const list = o.ips.map(ip => '"' + ip + '"').join(', ');
-    lines.push(
-      '# 4. Chan cac IP da bi EventTrace phat hien la brute-force',
-      '$blockedIPs = @(' + list + ')',
-      'New-NetFirewallRule -DisplayName "EventTrace-Block-List" -Direction Inbound -Action Block -RemoteAddress $blockedIPs',
-      'Write-Host "Da chan ' + o.ips.length + ' IP dang ngo" -ForegroundColor Green',
-      ''
-    );
-  } else {
-    lines.push('# 4. (Khong co IP nao duoc import tu EventTrace)', '');
-  }
-
-  if (o.renameAdmin) {
-    lines.push(
-      '# 5. Doi ten tai khoan Administrator mac dinh',
-      'Rename-LocalUser -Name "Administrator" -NewName "svc-adm-' + Math.random().toString(36).slice(2, 7) + '"',
-      'Write-Host "Da doi ten tai khoan Administrator" -ForegroundColor Yellow',
-      ''
-    );
-  }
-
-  if (o.vpnNote) {
-    lines.push(
-      '# Goi y: can nhac dung Tailscale/WireGuard de khong phai mo port ' + o.port + ' ra Internet cong khai.',
-      '# https://tailscale.com/  |  https://www.wireguard.com/',
-      ''
-    );
-  }
-
-  lines.push(
-    'Write-Host "Hoan tat Harden Script." -ForegroundColor Cyan',
-    'Write-Host "ROLLBACK neu bi khoa nham: Remove-NetFirewallRule -DisplayName EventTrace-RDP-AllowAdmin,EventTrace-RDP-BlockOthers,EventTrace-Block-List" -ForegroundColor DarkYellow',
-    'Write-Host "ROLLBACK lockout policy mac dinh: net accounts /lockoutthreshold:0" -ForegroundColor DarkYellow'
-  );
-
-  return lines.join('\n');
-}
-
-// ---- Linux ----
-function genLinuxAudit(o) {
-  return [
-    '#!/bin/bash',
-    '# ======================================================',
-    '# EventTrace/Hardening Generator - AUDIT SCRIPT (Linux) - CHI DOC',
-    '# ======================================================',
-    '',
-    'echo "== sshd_config hien tai =="',
-    'grep -E "^(PermitRootLogin|PasswordAuthentication|Port)" /etc/ssh/sshd_config 2>/dev/null || echo "Khong doc duoc sshd_config"',
-    '',
-    'echo "== Trang thai fail2ban =="',
-    'systemctl is-active fail2ban 2>/dev/null || echo "fail2ban chua cai hoac chua chay"',
-    'command -v fail2ban-client >/dev/null && sudo fail2ban-client status sshd 2>/dev/null',
-    '',
-    'echo "== Trang thai ufw =="',
-    'command -v ufw >/dev/null && sudo ufw status verbose || echo "ufw chua duoc cai"',
-    '',
-    'echo "== Chinh sach khoa tai khoan (PAM faillock) =="',
-    'grep -E "deny|unlock_time" /etc/security/faillock.conf 2>/dev/null || echo "Chua cau hinh pam_faillock"',
-    '',
-    'echo "Audit hoan tat. Khong co thay doi nao duoc ap dung."',
-  ].join('\n');
-}
-
-function genLinuxHarden(o) {
-  const lines = [
-    '#!/bin/bash',
-    '# ======================================================',
-    '# EventTrace/Hardening Generator - HARDEN SCRIPT (Linux)',
-    '# CANH BAO: script nay THAY DOI cau hinh SSH va firewall.',
-    '# Giu mot phien SSH/console khac dang mo khi chay, de',
-    '# tranh tu khoa mat quyen truy cap neu cau hinh sai.',
-    '# ======================================================',
-    'set -e',
-    '',
-    'BACKUP="/etc/ssh/sshd_config.bak.$(date +%Y%m%d%H%M%S)"',
-    'sudo cp /etc/ssh/sshd_config "$BACKUP"',
-    'echo "Da backup sshd_config -> $BACKUP"',
-    '',
-    '# Ham tien ich: set 1 option trong sshd_config, them dong moi neu chua ton tai',
-    'set_sshd_option() {',
-    '  key="$1"',
-    '  value="$2"',
-    '  file="/etc/ssh/sshd_config"',
-    '  if grep -qE "^#?$key " "$file"; then',
-    '    sudo sed -i -E "s/^#?$key .*/$key $value/" "$file"',
-    '  else',
-    '    echo "$key $value" | sudo tee -a "$file" > /dev/null',
-    '  fi',
-    '}',
-    '',
-    '# 1. Tat dang nhap root truc tiep qua SSH',
-    'set_sshd_option PermitRootLogin no',
-  ];
-
-  if (o.disablePasswordAuth) {
-    lines.push(
-      '',
-      '# 2. Tat xac thuc bang mat khau (CHI bat vi da xac nhan co SSH key du phong)',
-      'set_sshd_option PasswordAuthentication no'
-    );
-  } else {
-    lines.push('', '# 2. (Bo qua) Giu nguyen PasswordAuthentication vi chua xac nhan da co SSH key du phong');
-  }
-
-  if (o.port !== 22) {
-    lines.push('', '# 3. Doi port SSH sang ' + o.port, 'set_sshd_option Port ' + o.port);
-  } else {
-    lines.push('', '# 3. (Bo qua) Giu nguyen port 22');
-  }
-
-  lines.push(
-    '',
-    '# Kiem tra cau hinh hop le truoc khi ap dung',
-    'sudo sshd -t && echo "Cau hinh sshd hop le" || { echo "LOI cau hinh, khoi phuc ban backup"; sudo cp "$BACKUP" /etc/ssh/sshd_config; exit 1; }',
-    'sudo systemctl reload sshd',
-    '',
-    '# 4. Cai va cau hinh fail2ban',
-    'if ! command -v fail2ban-client >/dev/null; then',
-    '  sudo apt-get update && sudo apt-get install -y fail2ban',
-    'fi',
-    'sudo tee /etc/fail2ban/jail.local > /dev/null << EOF',
-    '[sshd]',
-    'enabled = true',
-    'port = ' + o.port,
-    'maxretry = ' + o.lockoutThreshold,
-    'bantime = ' + (o.lockoutDuration * 60),
-    'findtime = 600',
-    'EOF',
-    'sudo systemctl restart fail2ban',
-    'echo "Da cau hinh fail2ban: maxretry=' + o.lockoutThreshold + ', bantime=' + o.lockoutDuration + ' phut"',
-    '',
-    '# 5. Cau hinh ufw'
-  );
-
-  const ufwLines = ['if command -v ufw >/dev/null; then', '  sudo ufw allow ' + o.port + '/tcp'];
-  if (o.allowedIp) ufwLines.push('  sudo ufw allow from ' + o.allowedIp + ' to any port ' + o.port + ' proto tcp');
-  o.ips.forEach(ip => ufwLines.push('  sudo ufw deny from ' + ip + ' to any'));
-  ufwLines.push('  sudo ufw --force enable', 'fi');
-  lines.push(...ufwLines);
-
-  if (o.vpnNote) {
-    lines.push('', '# Goi y: can nhac Tailscale/WireGuard thay vi mo port ' + o.port + ' cong khai ra Internet.');
-  }
-
-  lines.push(
-    '',
-    'echo "Hoan tat Harden Script."',
-    'echo "ROLLBACK neu bi khoa nham: sudo cp $BACKUP /etc/ssh/sshd_config && sudo systemctl reload sshd"'
-  );
-
-  return lines.join('\n');
-}
-
-// ========================================================================
-// INIT
-// ========================================================================
-document.getElementById('bfThreshold').addEventListener('change', () => { if (events.length) finalizeAnalysis(); });
-document.getElementById('breachThreshold').addEventListener('change', () => { if (events.length) finalizeAnalysis(); });
-['portInput','ldThreshold','ldDuration','allowedIpInput','optVpn','optDisablePassAuth','optRenameAdmin','manualIps']
-  .forEach(id => document.getElementById(id).addEventListener('input', refreshScript));
-
-setPlatform('windows');
-setScriptMode('audit');
-</script>
-</body>
-</html>
+  document.getElementById('cmdPowershell').textContent = ips.length
+    ? '# Chặn các IP đáng ngờ bằng Windows Firewall\n$blockedIPs = @(' + ips.map(ip => '"' + ip + '"').join(', ') + ')\nNew-NetFirewallRule -DisplayName "EventTrace-Block-List" -Direction Inbound -Action Block -RemoteAddress $blockedIPs\n# Remove-NetFirewallRule -DisplayName "EventTrace-Block
